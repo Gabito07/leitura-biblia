@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Leitura da Bíblia</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--txt:#2b2b2b;--mut:#7a7a7a;--acc:#7b4b94;--ok:#3f8f5b;--soft:rgba(63,143,91,.40);--bd:#e5dfd5}
+@media(prefers-color-scheme:dark){:root{--bg:#16161a;--card:#202026;--txt:#eee;--mut:#9a9aa5;--acc:#b58ad0;--ok:#4fb374;--soft:rgba(79,179,116,.40);--bd:#33333c}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 -apple-system,system-ui,sans-serif;padding:14px;padding-bottom:40px;max-width:720px;margin-inline:auto}
+h1{font-size:20px;margin:2px 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:12px}
+.barra{height:8px;background:var(--bd);border-radius:99px;overflow:hidden}
+.barra i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
+.grande{font-size:28px;font-weight:700}
+.mut{color:var(--mut);font-size:13px}
+.linha{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:8px 0 4px}
+.stats{display:flex;gap:8px;margin-top:10px}
+.stats div{flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:6px}
+.stats b{font-size:18px;display:block}
+.graf{display:flex;align-items:flex-end;gap:4px;height:64px;margin-top:10px}
+.graf div{flex:1;text-align:center;font-size:10px;color:var(--mut)}
+.graf span{display:block;background:var(--acc);border-radius:4px 4px 0 0;min-height:2px;margin-bottom:2px}
+
+.colunas{display:grid;grid-template-columns:3fr 2fr;gap:10px;align-items:start}
+.colunas h2{font-size:12px;color:var(--mut);margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:5px}
+.liv{aspect-ratio:1;border:1px solid var(--bd);border-radius:10px;padding:2px;color:var(--txt);
+  background:linear-gradient(to top,var(--soft) var(--p,0%),var(--card) var(--p,0%));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-family:inherit}
+.liv b{font-size:13px;line-height:1.1}
+.liv small{font-size:9px;color:var(--mut);line-height:1}
+.liv.full{background:var(--ok);border-color:var(--ok);color:#fff}
+.liv.full small{color:#fff}
+
+#fundo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
+#fundo.aberto{display:flex}
+#folha{background:var(--card);width:100%;max-width:720px;max-height:85vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.topo{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+#mNome{font-size:18px;font-weight:700}
+#fechar{border:1px solid var(--bd);background:var(--bg);color:var(--txt);border-radius:50%;width:34px;height:34px;font-size:16px}
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;margin:12px 0}
+.cap{height:44px;border:1px solid var(--bd);background:var(--bg);color:var(--txt);border-radius:10px;font-size:15px}
+.cap.ok{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:600}
+.acoes{display:flex;gap:8px}
+.acoes button,.rodape button{border:1px solid var(--bd);background:var(--bg);color:var(--txt);border-radius:8px;padding:8px 12px;font-size:13px}
+.rodape{display:flex;gap:8px;margin-top:18px}
+</style>
+</head>
+<body>
+<h1>📖 Leitura da Bíblia</h1>
+
+<div class="card">
+  <div class="linha"><span class="grande" id="pct">0%</span><span class="mut" id="tot">0 / 0 capítulos</span></div>
+  <div class="barra"><i id="bTot"></i></div>
+  <div class="linha"><span class="mut">Antigo Testamento</span><span class="mut" id="tAT"></span></div>
+  <div class="barra"><i id="bAT"></i></div>
+  <div class="linha"><span class="mut">Novo Testamento</span><span class="mut" id="tNT"></span></div>
+  <div class="barra"><i id="bNT"></i></div>
+  <div class="stats">
+    <div><b id="sHoje">0</b><span class="mut">hoje</span></div>
+    <div><b id="s7">0</b><span class="mut">7 dias</span></div>
+    <div><b id="s30">0</b><span class="mut">30 dias</span></div>
+  </div>
+  <div class="graf" id="graf"></div>
+</div>
+
+<div class="colunas">
+  <div><h2>Antigo</h2><div class="tiles" id="lAT"></div></div>
+  <div><h2>Novo</h2><div class="tiles" id="lNT"></div></div>
+</div>
+
+<div class="rodape">
+  <button id="exp">Copiar backup</button>
+  <button id="imp">Restaurar backup</button>
+</div>
+
+<div id="fundo">
+  <div id="folha">
+    <div class="topo">
+      <div><div id="mNome"></div><div class="mut" id="mCont"></div></div>
+      <button id="fechar" aria-label="Fechar">✕</button>
+    </div>
+    <div class="barra"><i id="mBar"></i></div>
+    <div class="grade" id="mGrade"></div>
+    <div class="acoes">
+      <button id="mTodos">Marcar todos</button>
+      <button id="mNenhum">Limpar livro</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// [nome, número de capítulos, sigla]. Ajuste aqui se a numeração da sua edição for diferente.
+const LIVROS=[
+["Gênesis",50,"Gn"],["Êxodo",40,"Ex"],["Levítico",27,"Lv"],["Números",36,"Nm"],["Deuteronômio",34,"Dt"],
+["Josué",24,"Js"],["Juízes",21,"Jz"],["Rute",4,"Rt"],["1 Samuel",31,"1Sm"],["2 Samuel",24,"2Sm"],
+["1 Reis",22,"1Rs"],["2 Reis",25,"2Rs"],["1 Crônicas",29,"1Cr"],["2 Crônicas",36,"2Cr"],["Esdras",10,"Esd"],
+["Neemias",13,"Ne"],["Tobias",14,"Tb"],["Judite",16,"Jt"],["Ester",10,"Est"],["1 Macabeus",16,"1Mc"],
+["2 Macabeus",15,"2Mc"],["Jó",42,"Jó"],["Salmos",150,"Sl"],["Provérbios",31,"Pr"],["Eclesiastes",12,"Ecl"],
+["Cântico dos Cânticos",8,"Ct"],["Sabedoria",19,"Sb"],["Eclesiástico",51,"Eclo"],["Isaías",66,"Is"],["Jeremias",52,"Jr"],
+["Lamentações",5,"Lm"],["Baruc",6,"Br"],["Ezequiel",48,"Ez"],["Daniel",14,"Dn"],["Oseias",14,"Os"],
+["Joel",4,"Jl"],["Amós",9,"Am"],["Abdias",1,"Ab"],["Jonas",4,"Jn"],["Miqueias",7,"Mq"],
+["Naum",3,"Na"],["Habacuc",3,"Hab"],["Sofonias",3,"Sf"],["Ageu",2,"Ag"],["Zacarias",14,"Zc"],
+["Malaquias",3,"Ml"],
+["Mateus",28,"Mt"],["Marcos",16,"Mc"],["Lucas",24,"Lc"],["João",21,"Jo"],["Atos dos Apóstolos",28,"At"],
+["Romanos",16,"Rm"],["1 Coríntios",16,"1Cor"],["2 Coríntios",13,"2Cor"],["Gálatas",6,"Gl"],["Efésios",6,"Ef"],
+["Filipenses",4,"Fl"],["Colossenses",4,"Cl"],["1 Tessalonicenses",5,"1Ts"],["2 Tessalonicenses",3,"2Ts"],["1 Timóteo",6,"1Tm"],
+["2 Timóteo",4,"2Tm"],["Tito",3,"Tt"],["Filêmon",1,"Fm"],["Hebreus",13,"Hb"],["Tiago",5,"Tg"],
+["1 Pedro",5,"1Pd"],["2 Pedro",3,"2Pd"],["1 João",5,"1Jo"],["2 João",1,"2Jo"],["3 João",1,"3Jo"],
+["Judas",1,"Jd"],["Apocalipse",22,"Ap"]
+];
+const N_AT=46;
+const KEY="leituraBiblia.v1";
+let lidos={};
+try{lidos=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
+const salvar=()=>{try{localStorage.setItem(KEY,JSON.stringify(lidos))}catch(e){}};
+const $=id=>document.getElementById(id);
+const fmt=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const diaAtras=n=>{const d=new Date();d.setDate(d.getDate()-n);return d};
+
+const soma=(a,b)=>LIVROS.slice(a,b).reduce((s,l)=>s+l[1],0);
+const T_AT=soma(0,N_AT), T_NT=soma(N_AT), T_ALL=T_AT+T_NT;
+
+// Quadradinhos dos livros
+LIVROS.forEach(([nome,n,sigla],i)=>{
+  const b=document.createElement("button");
+  b.className="liv"; b.id="t"+i; b.dataset.i=i; b.title=nome;
+  b.innerHTML=`<b>${sigla}</b><small id="n${i}"></small>`;
+  (i<N_AT?$("lAT"):$("lNT")).appendChild(b);
+});
+
+const contar=i=>{
+  let q=0;
+  for(let c=1;c<=LIVROS[i][1];c++) if(lidos[i+":"+c]) q++;
+  return q;
+};
+
+function atualizarLivro(i){
+  const n=LIVROS[i][1], q=contar(i), t=$("t"+i);
+  t.style.setProperty("--p",(q/n*100)+"%");
+  t.classList.toggle("full",q===n);
+  $("n"+i).textContent=q+"/"+n;
+}
+
+function atualizarResumo(){
+  let at=0,nt=0;
+  const porDia={};
+  for(const k in lidos){
+    const i=parseInt(k);
+    if(i<N_AT) at++; else nt++;
+    porDia[lidos[k]]=(porDia[lidos[k]]||0)+1;
+  }
+  const t=at+nt;
+  $("pct").textContent=(t/T_ALL*100).toFixed(1).replace(".",",")+"%";
+  $("tot").textContent=t+" / "+T_ALL+" capítulos";
+  $("bTot").style.width=(t/T_ALL*100)+"%";
+  $("tAT").textContent=at+" / "+T_AT; $("bAT").style.width=(at/T_AT*100)+"%";
+  $("tNT").textContent=nt+" / "+T_NT; $("bNT").style.width=(nt/T_NT*100)+"%";
+
+  const somaDias=n=>{let s=0;for(let d=0;d<n;d++) s+=porDia[fmt(diaAtras(d))]||0;return s};
+  $("sHoje").textContent=somaDias(1);
+  $("s7").textContent=somaDias(7);
+  $("s30").textContent=somaDias(30);
+
+  const dias=[];
+  for(let d=13;d>=0;d--){const dt=diaAtras(d);dias.push([dt.getDay(),porDia[fmt(dt)]||0]);}
+  const max=Math.max(1,...dias.map(x=>x[1]));
+  $("graf").innerHTML=dias.map(([w,v])=>`<div title="${v} cap."><span style="height:${v/max*46}px"></span>${"DSTQQSS"[w]}</div>`).join("");
+}
+
+function atualizarTudo(){LIVROS.forEach((_,i)=>atualizarLivro(i));atualizarResumo();}
+
+// Folha com os capítulos do livro
+let atual=null;
+function atualizarFolha(){
+  const i=atual, n=LIVROS[i][1], q=contar(i);
+  $("mCont").textContent=q+" / "+n+" capítulos";
+  $("mBar").style.width=(q/n*100)+"%";
+  document.querySelectorAll("#mGrade .cap").forEach(b=>{
+    const k=i+":"+b.dataset.c, ok=!!lidos[k];
+    b.classList.toggle("ok",ok);
+    b.title=ok?"Lido em "+lidos[k]:"";
+  });
+}
+function abrir(i){
+  atual=i;
+  $("mNome").textContent=LIVROS[i][0];
+  let h="";
+  for(let c=1;c<=LIVROS[i][1];c++) h+=`<button class="cap" data-c="${c}">${c}</button>`;
+  $("mGrade").innerHTML=h;
+  atualizarFolha();
+  $("fundo").classList.add("aberto");
+  $("folha").scrollTop=0;
+}
+function fechar(){$("fundo").classList.remove("aberto");atual=null;}
+function mudou(){salvar();atualizarFolha();atualizarLivro(atual);atualizarResumo();}
+
+document.addEventListener("click",e=>{
+  const liv=e.target.closest(".liv");
+  if(liv){abrir(+liv.dataset.i);return;}
+  if(e.target===$("fundo")||e.target.closest("#fechar")){fechar();return;}
+  const cap=e.target.closest("#mGrade .cap");
+  if(cap){
+    const k=atual+":"+cap.dataset.c;
+    if(lidos[k]) delete lidos[k]; else lidos[k]=fmt(new Date());
+    mudou();
+  }
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape") fechar();});
+
+$("mTodos").onclick=()=>{
+  for(let c=1;c<=LIVROS[atual][1];c++) if(!lidos[atual+":"+c]) lidos[atual+":"+c]=fmt(new Date());
+  mudou();
+};
+$("mNenhum").onclick=()=>{
+  if(!confirm("Desmarcar todos os capítulos de "+LIVROS[atual][0]+"?")) return;
+  for(let c=1;c<=LIVROS[atual][1];c++) delete lidos[atual+":"+c];
+  mudou();
+};
+
+$("exp").onclick=async()=>{
+  const txt=JSON.stringify(lidos);
+  try{await navigator.clipboard.writeText(txt);alert("Backup copiado! Cole em algum lugar seguro (Notas, por exemplo).");}
+  catch(e){prompt("Copie o backup:",txt);}
+};
+$("imp").onclick=()=>{
+  const txt=prompt("Cole aqui o backup:"); if(!txt) return;
+  try{
+    const obj=JSON.parse(txt);
+    if(typeof obj!=="object"||Array.isArray(obj)||!obj) throw 0;
+    if(!confirm("Isso substitui o progresso atual. Continuar?")) return;
+    lidos=obj; salvar(); atualizarTudo();
+  }catch(e){alert("Backup inválido.");}
+};
+
+atualizarTudo();
+</script>
+</body>
+</html>
