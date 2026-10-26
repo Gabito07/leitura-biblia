@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Leitura da Bíblia</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bíblia">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#7b4b94">
+<link rel="apple-touch-icon" href="icone.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#faf7f2;--card:#fff;--txt:#2b2b2b;--mut:#7a7a7a;--acc:#7b4b94;--ok:#3f8f5b;--soft:rgba(63,143,91,.40);--bd:#e5dfd5}
 @media(prefers-color-scheme:dark){:root{--bg:#16161a;--card:#202026;--txt:#eee;--mut:#9a9aa5;--acc:#b58ad0;--ok:#4fb374;--soft:rgba(79,179,116,.40);--bd:#33333c}}
@@ -46,10 +52,26 @@ h1{font-size:20px;margin:2px 0 10px}
 .acoes{display:flex;gap:8px}
 .acoes button,.rodape button{border:1px solid var(--bd);background:var(--bg);color:var(--txt);border-radius:8px;padding:8px 12px;font-size:13px}
 .rodape{display:flex;gap:8px;margin-top:18px}
+
+#formLogin{display:flex;flex-wrap:wrap;gap:6px}
+#formLogin input{flex:1 1 140px;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--txt);font-size:16px}
+#formLogin button,#sair{border:1px solid var(--bd);background:var(--bg);color:var(--txt);border-radius:8px;padding:8px 12px;font-size:13px}
 </style>
 </head>
 <body>
 <h1>📖 Leitura da Bíblia</h1>
+
+<div class="card" id="conta">
+  <div id="logado" class="linha" style="display:none;margin:0">
+    <span class="mut" id="status"></span><button id="sair">Sair</button>
+  </div>
+  <form id="formLogin">
+    <input id="email" type="email" placeholder="e-mail" autocomplete="email" required>
+    <input id="senha" type="password" placeholder="senha (mín. 6)" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+    <button type="button" id="criar">Criar conta</button>
+  </form>
+</div>
 
 <div class="card">
   <div class="linha"><span class="grande" id="pct">0%</span><span class="mut" id="tot">0 / 0 capítulos</span></div>
@@ -115,7 +137,10 @@ const N_AT=46;
 const KEY="leituraBiblia.v1";
 let lidos={};
 try{lidos=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
-const salvar=()=>{try{localStorage.setItem(KEY,JSON.stringify(lidos))}catch(e){}};
+const salvar=()=>{
+  try{localStorage.setItem(KEY,JSON.stringify(lidos))}catch(e){}
+  setTs(Date.now()); agendarEnvio();
+};
 const $=id=>document.getElementById(id);
 const fmt=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 const diaAtras=n=>{const d=new Date();d.setDate(d.getDate()-n);return d};
@@ -170,7 +195,7 @@ function atualizarResumo(){
   $("graf").innerHTML=dias.map(([w,v])=>`<div title="${v} cap."><span style="height:${v/max*46}px"></span>${"DSTQQSS"[w]}</div>`).join("");
 }
 
-function atualizarTudo(){LIVROS.forEach((_,i)=>atualizarLivro(i));atualizarResumo();}
+function atualizarTudo(){LIVROS.forEach((_,i)=>atualizarLivro(i));atualizarResumo();if(atual!==null) atualizarFolha();}
 
 // Folha com os capítulos do livro
 let atual=null;
@@ -234,6 +259,78 @@ $("imp").onclick=()=>{
     lidos=obj; salvar(); atualizarTudo();
   }catch(e){alert("Backup inválido.");}
 };
+
+// ===== Sincronização =====
+const SUPA_URL="https://ntcoocvmtgyewlqdfltj.supabase.co/rest/v1/";
+const SUPA_KEY="sb_publishable_XikwJ9vx9C702YQ8CM7neQ_3gwAxom6";
+const sb=window.supabase?window.supabase.createClient(SUPA_URL,SUPA_KEY):null;
+let usuario=null, timer=null;
+
+const getTs=()=>+(localStorage.getItem(KEY+".ts")||0);
+const setTs=t=>{try{localStorage.setItem(KEY+".ts",t)}catch(e){}};
+const setStatus=t=>{$("status").textContent=t;};
+
+function mostrarConta(){
+  if(!sb){$("conta").style.display="none";return;}
+  $("logado").style.display=usuario?"flex":"none";
+  $("formLogin").style.display=usuario?"none":"flex";
+}
+
+function agendarEnvio(){
+  if(!sb||!usuario) return;
+  clearTimeout(timer);
+  timer=setTimeout(empurrar,800);
+}
+
+async function empurrar(){
+  if(!sb||!usuario) return;
+  setStatus("Salvando…");
+  const {error}=await sb.from("leitura").upsert({
+    user_id:usuario.id,
+    dados:lidos,
+    atualizado:new Date(getTs()||Date.now()).toISOString()
+  });
+  setStatus(error?"Sem conexão (salvo só no aparelho)":"Sincronizado ✓");
+}
+
+async function sincronizar(){
+  if(!sb||!usuario) return;
+  const {data,error}=await sb.from("leitura").select("dados,atualizado").eq("user_id",usuario.id).maybeSingle();
+  if(error){setStatus("Sem conexão");return;}
+  if(data && new Date(data.atualizado).getTime()>getTs()){
+    lidos=data.dados||{};
+    try{localStorage.setItem(KEY,JSON.stringify(lidos))}catch(e){}
+    setTs(new Date(data.atualizado).getTime());
+    atualizarTudo();
+    setStatus("Sincronizado ✓");
+  } else {
+    await empurrar();
+  }
+}
+
+async function entrar(criar){
+  const email=$("email").value.trim(), password=$("senha").value;
+  const {data,error}=criar
+    ? await sb.auth.signUp({email,password})
+    : await sb.auth.signInWithPassword({email,password});
+  if(error){alert(error.message);return;}
+  if(!data.session){alert("Confirme o e-mail e entre de novo.");return;}
+  usuario=data.session.user; mostrarConta(); sincronizar();
+}
+
+$("formLogin").onsubmit=e=>{e.preventDefault();entrar(false);};
+$("criar").onclick=()=>entrar(true);
+$("sair").onclick=async()=>{await sb.auth.signOut();usuario=null;mostrarConta();};
+document.addEventListener("visibilitychange",()=>{if(!document.hidden) sincronizar();});
+
+(async()=>{
+  if(sb){
+    const {data}=await sb.auth.getSession();
+    if(data.session){usuario=data.session.user;}
+  }
+  mostrarConta();
+  sincronizar();
+})();
 
 atualizarTudo();
 </script>
